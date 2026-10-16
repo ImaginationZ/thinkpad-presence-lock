@@ -8,6 +8,8 @@ Touch Lock" / "lock on leave".
 No camera, no phone, no background service: the extension reads the radar
 directly (about 4 readings per second, negligible CPU).
 
+![The extension's icon in the top bar, next to Wi-Fi, sound and battery, in its four states](docs/top-bar.png)
+
 ## Supported hardware
 
 This extension was written for, and tested on, the **ThinkPad X1 Nano Gen 1**
@@ -72,6 +74,25 @@ gnome-extensions enable thinkpad-presence-lock@imaginationz.github.io
 - The radar is only switched on while the extension is enabled, so turning
   the extension off also saves the power the radar uses.
 
+## Top bar and Quick Settings
+
+The icon sits with the system icons in the top-right corner:
+
+| Icon | Meaning |
+|---|---|
+| Person at a laptop | The radar sees you |
+| Laptop only | You walked away; the screen is about to lock |
+| Open padlock | Auto-lock is paused |
+| Warning sign | Something went wrong (see the notification) |
+
+Quick Settings also gets a **Presence Lock** tile. Click it to pause or
+resume auto-locking (the choice is kept across logins). Its arrow opens a
+menu with a link to the settings.
+
+Problems such as a missing udev rule or a lost radar connection are shown as
+a notification, and the icon turns into a warning sign, even if you've
+hidden the icon.
+
 ## Settings
 
 Open them from the Extensions app, or with
@@ -81,6 +102,7 @@ Open them from the Extensions app, or with
 |---|---|---|
 | Lock delay | 5 s | Extra wait (0–300 s) after the radar stops seeing you |
 | Lock even when the screensaver is blocked | Off | Also lock during video playback or presentations |
+| Show top bar icon | On | Hide the icon; the Quick Settings tile stays, and errors still show the icon |
 
 ## How it works
 

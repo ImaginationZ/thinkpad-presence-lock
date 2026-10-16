@@ -24,9 +24,16 @@ export default class PresenceLockPreferences extends ExtensionPreferences {
         });
         settings.bind('lock-when-inhibited', inhibited, 'active', Gio.SettingsBindFlags.DEFAULT);
 
+        const indicator = new Adw.SwitchRow({
+            title: 'Show top bar icon',
+            subtitle: 'Shows whether the radar sees you. Errors are shown even when this is off.',
+        });
+        settings.bind('show-indicator', indicator, 'active', Gio.SettingsBindFlags.DEFAULT);
+
         const group = new Adw.PreferencesGroup();
         group.add(delay);
         group.add(inhibited);
+        group.add(indicator);
 
         const page = new Adw.PreferencesPage();
         page.add(group);

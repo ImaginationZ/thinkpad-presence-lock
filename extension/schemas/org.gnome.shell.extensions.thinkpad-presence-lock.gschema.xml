@@ -13,5 +13,15 @@
       <summary>Lock even when the screensaver is blocked</summary>
       <description>Lock even when an app is blocking the screensaver, for example during video playback or a presentation.</description>
     </key>
+    <key name="auto-lock" type="b">
+      <default>true</default>
+      <summary>Lock automatically</summary>
+      <description>Lock the screen when you walk away. Turned off with the Quick Settings tile to pause auto-locking.</description>
+    </key>
+    <key name="show-indicator" type="b">
+      <default>true</default>
+      <summary>Show the top bar icon</summary>
+      <description>Show an icon in the top bar with the current presence status. Errors are shown even when this is off.</description>
+    </key>
   </schema>
 </schemalist>
