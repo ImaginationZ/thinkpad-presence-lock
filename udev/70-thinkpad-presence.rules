@@ -1,0 +1,10 @@
+# Let the logged-in user use the Lenovo presence sensors exposed by the
+# Intel Sensor Hub as HID custom sensors (usage 0x2000e1).
+#
+# - enable_sensor becomes writable, so the extension can switch the radar
+#   on while it runs and off again when it is disabled (saves power).
+# - The raw data device gets the "uaccess" tag, so only the user at the
+#   active local seat can read it.
+
+ACTION=="add", SUBSYSTEM=="platform", KERNEL=="HID-SENSOR-2000e1.*", ATTR{[dmi/id]sys_vendor}=="LENOVO", RUN+="/bin/chmod 0666 /sys%p/enable_sensor"
+ACTION=="add", SUBSYSTEM=="misc", KERNEL=="HID-SENSOR-2000e1.*", ATTR{[dmi/id]sys_vendor}=="LENOVO", TAG+="uaccess"

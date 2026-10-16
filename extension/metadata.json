@@ -1,0 +1,10 @@
+{
+  "uuid": "thinkpad-presence-lock@imaginationz.github.io",
+  "name": "ThinkPad Presence Lock",
+  "description": "Locks the screen when you walk away and wakes it when you come back, using the presence radar in the ThinkPad X1 Nano Gen 1 (tested) and similar 2021 X1 models (untested). Requires a udev rule, see the project page.",
+  "shell-version": ["46", "47", "48"],
+  "session-modes": ["user", "unlock-dialog"],
+  "settings-schema": "org.gnome.shell.extensions.thinkpad-presence-lock",
+  "url": "https://github.com/ImaginationZ/thinkpad-presence-lock",
+  "version-name": "0.1"
+}

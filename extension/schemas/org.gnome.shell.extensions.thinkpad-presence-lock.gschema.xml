@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.thinkpad-presence-lock"
+          path="/org/gnome/shell/extensions/thinkpad-presence-lock/">
+    <key name="lock-delay" type="u">
+      <range min="0" max="300"/>
+      <default>5</default>
+      <summary>Lock delay</summary>
+      <description>Seconds to wait after the radar reports nobody there before locking. The radar itself already waits about 10 seconds.</description>
+    </key>
+    <key name="lock-when-inhibited" type="b">
+      <default>false</default>
+      <summary>Lock even when the screensaver is blocked</summary>
+      <description>Lock even when an app is blocking the screensaver, for example during video playback or a presentation.</description>
+    </key>
+  </schema>
+</schemalist>
