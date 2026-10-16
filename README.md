@@ -85,7 +85,7 @@ The icon sits with the system icons in the top-right corner:
 | Open padlock | Auto-lock is paused |
 | Warning sign | Something went wrong (see the notification) |
 
-Quick Settings also gets a **Presence Lock** tile. Click it to pause or
+Quick Settings also gets a **Presence** tile ("Lock when away"). Click it to pause or
 resume auto-locking (the choice is kept across logins). Its arrow opens a
 menu with a link to the settings.
 

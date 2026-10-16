@@ -77,23 +77,24 @@ function isLidClosed() {
 }
 
 const TITLE = 'Presence Lock';
+// The tile is too narrow for the full name.
+const TILE_TITLE = 'Presence';
+const TILE_SUBTITLE = 'Lock when away';
 
 // Quick Settings tile: click to pause or resume auto-locking, arrow for
 // Settings.
 const PresenceToggle = GObject.registerClass(
 class PresenceToggle extends QuickSettings.QuickMenuToggle {
     _init(extension, settings) {
-        super._init({title: TITLE, toggleMode: true});
+        super._init({title: TILE_TITLE, subtitle: TILE_SUBTITLE, toggleMode: true});
         settings.bind('auto-lock', this, 'checked', Gio.SettingsBindFlags.DEFAULT);
 
         this.menu.addAction('Settings', () => extension.openPreferences());
     }
 
     // Errors also go out as a notification; the subtitle just flags them.
-    // It must be null, not '', when there is none, or the tile keeps an
-    // empty second line and the title sits off-center.
     setStatus(gicon, error) {
-        this.set({gicon, subtitle: error});
+        this.set({gicon, subtitle: error ?? TILE_SUBTITLE});
         this.menu.setHeader(gicon, TITLE, error ?? '');
     }
 });
