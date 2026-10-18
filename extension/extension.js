@@ -9,6 +9,7 @@ import GObject from 'gi://GObject';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as QuickSettings from 'resource:///org/gnome/shell/ui/quickSettings.js';
 
 const SYSFS_DIR = '/sys/bus/platform/devices';
@@ -21,7 +22,20 @@ const SENSOR_NAME = 'Xethru Presence Sensor';
 const HEADER_LEN = 16;
 const PRESENCE_OFFSET = 26;
 
+// The radar sends about 4 samples a second, even when nothing changes, so
+// a long silence means it stopped working.
+const STALL_TIMEOUT = 10;
+const WATCHDOG_INTERVAL = 5;
+
 const IDLE_INHIBIT_FLAG = 8;
+
+function callSessionManager(method, params, replyType, cancellable, callback) {
+    Gio.DBus.session.call(
+        'org.gnome.SessionManager', '/org/gnome/SessionManager',
+        'org.gnome.SessionManager', method,
+        params, replyType ? new GLib.VariantType(replyType) : null,
+        Gio.DBusCallFlags.NONE, -1, cancellable, callback);
+}
 
 function readText(path) {
     const [, bytes] = GLib.file_get_contents(path);
@@ -79,23 +93,41 @@ function isLidClosed() {
 const TITLE = 'Presence Lock';
 // The tile is too narrow for the full name.
 const TILE_TITLE = 'Presence';
-const TILE_SUBTITLE = 'Lock when away';
 
-// Quick Settings tile: click to pause or resume auto-locking, arrow for
-// Settings.
+// Behavior options in the tile's menu, worded shorter than in Settings
+// to fit.
+const MENU_OPTIONS = [
+    ['auto-lock', 'Lock when away'],
+    ['lock-when-inhibited', 'Lock during playback'],
+    ['stay-awake', 'Stay awake when present'],
+];
+
+// Quick Settings tile: click to switch the radar on or off (like Wi-Fi or
+// Bluetooth), arrow for the on/off options (checkmarked like Power Mode)
+// and Settings.
 const PresenceToggle = GObject.registerClass(
 class PresenceToggle extends QuickSettings.QuickMenuToggle {
     _init(extension, settings) {
-        super._init({title: TILE_TITLE, subtitle: TILE_SUBTITLE, toggleMode: true});
-        settings.bind('auto-lock', this, 'checked', Gio.SettingsBindFlags.DEFAULT);
+        super._init({title: TILE_TITLE, toggleMode: true});
+        settings.bind('radar', this, 'checked', Gio.SettingsBindFlags.DEFAULT);
 
+        for (const [key, label] of MENU_OPTIONS) {
+            const item = this.menu.addAction(label,
+                () => settings.set_boolean(key, !settings.get_boolean(key)));
+            const sync = () => item.setOrnament(settings.get_boolean(key)
+                ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
+            settings.connectObject(`changed::${key}`, sync, item);
+            sync();
+        }
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.menu.addAction('Settings', () => extension.openPreferences());
     }
 
     // Errors also go out as a notification; the subtitle just flags them.
-    setStatus(gicon, error) {
-        this.set({gicon, subtitle: error ?? TILE_SUBTITLE});
-        this.menu.setHeader(gicon, TITLE, error ?? '');
+    setStatus(gicon, status) {
+        this.set({gicon, subtitle: status});
+        this.menu.setHeader(gicon, TITLE, status ?? '');
     }
 });
 
@@ -109,10 +141,10 @@ class PresenceIndicator extends QuickSettings.SystemIndicator {
         this.quickSettingsItems.push(this.toggle);
     }
 
-    setStatus(gicon, error, showIcon, showToggle) {
+    setStatus(gicon, status, showIcon, showToggle) {
         this._icon.gicon = gicon;
         this._icon.visible = showIcon;
-        this.toggle.setStatus(gicon, error);
+        this.toggle.setStatus(gicon, status);
         this.toggle.visible = showToggle;
     }
 
@@ -131,6 +163,7 @@ export default class PresenceLockExtension extends Extension {
         this._icons = {
             present: fileIcon('presence-present'),
             away: fileIcon('presence-away'),
+            off: fileIcon('presence-off'),
             paused: Gio.ThemedIcon.new('changes-allow-symbolic'),
             error: Gio.ThemedIcon.new('dialog-warning-symbolic'),
         };
@@ -141,10 +174,37 @@ export default class PresenceLockExtension extends Extension {
         this._settings.connectObject(
             'changed::show-indicator', () => this._updateStatus(),
             'changed::auto-lock', () => this._onAutoLockChanged(),
+            'changed::stay-awake', () => this._updateStatus(),
+            'changed::radar', () => this._onRadarChanged(),
             this);
         Main.sessionMode.connectObject('updated', () => this._updateStatus(), this);
         this._updateStatus();
 
+        if (this._settings.get_boolean('radar'))
+            this._startRadar();
+    }
+
+    disable() {
+        this._stopRadar();
+        Main.sessionMode.disconnectObject(this);
+        this._settings.disconnectObject(this);
+        this._settings = null;
+        this._updateInhibit();
+        this._indicator.destroy();
+        this._indicator = null;
+        this._notificationSource?.destroy();
+        this._notificationSource = null;
+        this._icons = null;
+    }
+
+    _onRadarChanged() {
+        if (this._settings.get_boolean('radar'))
+            this._startRadar();
+        else
+            this._stopRadar();
+    }
+
+    _startRadar() {
         this._sensor = findSensor();
         if (!this._sensor) {
             this._setError('No radar found', 'This laptop has no Xethru presence sensor.');
@@ -160,34 +220,56 @@ export default class PresenceLockExtension extends Extension {
             return;
         }
         // Wrap the fd in a pollable stream so reads never block a thread
-        // and cancel cleanly on disable().
+        // and cancel cleanly in _stopRadar().
         this._stream = GioUnix.InputStream.new(this._fileStream.get_fd(), false);
         this._cancellable = new Gio.Cancellable();
         this._readNext();
+
+        this._lastSampleTime = GLib.get_monotonic_time();
+        this._watchdogId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, WATCHDOG_INTERVAL, () => {
+            if (GLib.get_monotonic_time() - this._lastSampleTime < STALL_TIMEOUT * 1e6)
+                return GLib.SOURCE_CONTINUE;
+            this._watchdogId = 0;
+            this._setError('The radar stopped', 'It stopped sending data. Turn the radar off and on to retry.');
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
-    disable() {
+    // Stops reading and switches the sensor off. With no presence known,
+    // nothing is scheduled to lock and the idle inhibitor is released, so
+    // GNOME's own blanking, locking and suspend take over.
+    _closeRadar() {
         this._cancellable?.cancel();
         this._cancellable = null;
+        if (this._watchdogId) {
+            GLib.source_remove(this._watchdogId);
+            this._watchdogId = 0;
+        }
         this._cancelLock();
         this._stream = null;
-        this._fileStream?.close(null);
+        try {
+            this._fileStream?.close(null);
+        } catch {
+            // The device may already be gone.
+        }
         this._fileStream = null;
         if (this._sensor)
             writeText(`${SYSFS_DIR}/${this._sensor}/enable_sensor`, '0');
         this._sensor = null;
-        Main.sessionMode.disconnectObject(this);
-        this._settings.disconnectObject(this);
-        this._settings = null;
-        this._indicator.destroy();
-        this._indicator = null;
-        this._notificationSource?.destroy();
-        this._notificationSource = null;
-        this._icons = null;
+        this._present = null;
     }
 
+    // Also clears any radar error, so turning the radar off and on retries.
+    _stopRadar() {
+        this._closeRadar();
+        this._error = null;
+        this._updateStatus();
+    }
+
+    // Radar errors stop it, falling back to GNOME's own behavior.
     _setError(summary, detail) {
         console.warn(`${this.metadata.name}: ${summary}. ${detail}`);
+        this._closeRadar();
         this._error = summary;
         this._updateStatus();
 
@@ -210,9 +292,12 @@ export default class PresenceLockExtension extends Extension {
     }
 
     _updateStatus() {
+        const radar = this._settings.get_boolean('radar');
         let icon;
         if (this._error)
             icon = this._icons.error;
+        else if (!radar)
+            icon = this._icons.off;
         else if (!this._settings.get_boolean('auto-lock'))
             icon = this._icons.paused;
         else if (this._present === false)
@@ -224,7 +309,42 @@ export default class PresenceLockExtension extends Extension {
         // unnoticed. Nothing shows on the lock screen.
         const locked = Main.sessionMode.isLocked;
         const showIcon = !locked && (!!this._error || this._settings.get_boolean('show-indicator'));
-        this._indicator.setStatus(icon, this._error, showIcon, !locked);
+        // No subtitle when off, like the built-in tiles.
+        let status = this._error;
+        if (!status && radar)
+            status = this._settings.get_boolean('auto-lock') ? 'Lock when away' : 'Not locking';
+        this._indicator.setStatus(icon, status, showIcon, !locked);
+        this._updateInhibit();
+    }
+
+    // With stay-awake on, hold an idle inhibitor while the radar sees you,
+    // so the screen doesn't blank, lock or suspend on its own. It's
+    // released as soon as you leave, before _maybeLock() checks for
+    // inhibitors.
+    _updateInhibit() {
+        const want = !!this._settings && this._settings.get_boolean('stay-awake') &&
+            this._present === true && !this._error && !Main.sessionMode.isLocked;
+
+        if (want && !this._inhibitCookie && !this._inhibitPending) {
+            // Not cancellable: the inhibitor would still be created, so
+            // wait for the cookie and release it here instead.
+            this._inhibitPending = true;
+            callSessionManager('Inhibit',
+                new GLib.Variant('(susu)', [this.uuid, 0, 'You’re at the computer', IDLE_INHIBIT_FLAG]),
+                '(u)', null, (connection, result) => {
+                    this._inhibitPending = false;
+                    try {
+                        [this._inhibitCookie] = connection.call_finish(result).deepUnpack();
+                    } catch (e) {
+                        console.warn(`${this.metadata.name}: Can’t inhibit idle. ${e.message}`);
+                        return;
+                    }
+                    this._updateInhibit();
+                });
+        } else if (!want && this._inhibitCookie) {
+            callSessionManager('Uninhibit', new GLib.Variant('(u)', [this._inhibitCookie]), null, null, null);
+            this._inhibitCookie = 0;
+        }
     }
 
     _readNext() {
@@ -234,13 +354,14 @@ export default class PresenceLockExtension extends Extension {
                 bytes = stream.read_bytes_finish(result);
             } catch (e) {
                 if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                    this._setError('Lost the radar', `${e.message}. Turn the extension off and on to retry.`);
+                    this._setError('Lost the radar', `${e.message}. Turn the radar off and on to retry.`);
                 return;
             }
             if (bytes.get_size() === 0) {
-                this._setError('The radar stopped', 'It stopped sending data. Turn the extension off and on to retry.');
+                this._setError('The radar stopped', 'It stopped sending data. Turn the radar off and on to retry.');
                 return;
             }
+            this._lastSampleTime = GLib.get_monotonic_time();
             this._parse(bytes.toArray());
             this._readNext();
         });
@@ -315,11 +436,9 @@ export default class PresenceLockExtension extends Extension {
         }
 
         // Respect idle inhibitors (video playback, presentations, ...).
-        Gio.DBus.session.call(
-            'org.gnome.SessionManager', '/org/gnome/SessionManager',
-            'org.gnome.SessionManager', 'IsInhibited',
-            new GLib.Variant('(u)', [IDLE_INHIBIT_FLAG]), new GLib.VariantType('(b)'),
-            Gio.DBusCallFlags.NONE, -1, this._cancellable, (connection, result) => {
+        callSessionManager('IsInhibited',
+            new GLib.Variant('(u)', [IDLE_INHIBIT_FLAG]), '(b)',
+            this._cancellable, (connection, result) => {
                 let inhibited = false;
                 try {
                     [inhibited] = connection.call_finish(result).deepUnpack();

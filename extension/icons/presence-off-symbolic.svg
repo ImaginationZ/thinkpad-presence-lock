@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg height="16px" viewBox="0 0 16 16" width="16px" xmlns="http://www.w3.org/2000/svg">
+    <!-- The present icon with a gap cut out around the slash, Adwaita
+         "-disabled" style. A clip path, not a mask, so symbolic recoloring
+         can't affect it. -->
+    <clipPath id="gap">
+        <path d="m -1 -1 h 18 v 18 h -18 z m 1.237 -1.237 l 18 18 l -2.474 2.474 l -18 -18 z" clip-rule="evenodd"/>
+    </clipPath>
+    <g clip-path="url(#gap)">
+        <circle cx="8" cy="3.6" r="2.6" fill="#2e3436"/>
+        <path d="m 4.564 7.5 a 4 4 0 0 1 1.936 -0.5 h 3 a 4 4 0 0 1 1.936 0.5 z" fill="#2e3436"/>
+        <rect x="2.5" y="8.5" width="11" height="5.5" rx="1" fill="#2e3436"/>
+        <rect x="0.5" y="14" width="15" height="1.5" rx="0.75" fill="#2e3436"/>
+    </g>
+    <path d="m 1.53 0.47 l -1.06 1.06 l 14 14 l 1.06 -1.06 z" fill="#2e3436"/>
+</svg>

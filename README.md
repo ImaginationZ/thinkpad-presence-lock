@@ -8,7 +8,7 @@ Touch Lock" / "lock on leave".
 No camera, no phone, no background service: the extension reads the radar
 directly (about 4 readings per second, negligible CPU).
 
-![The extension's icon in the top bar, next to Wi-Fi, sound and battery, in its four states](docs/top-bar.png)
+![The extension's icon in the top bar, next to Wi-Fi, sound and battery, in its five states](docs/top-bar.png)
 
 ## Supported hardware
 
@@ -71,8 +71,12 @@ gnome-extensions enable thinkpad-presence-lock@imaginationz.github.io
   - an app is blocking the screensaver (video playback, presentations), unless
     you turn that on in the settings;
   - the screen is already locked.
-- The radar is only switched on while the extension is enabled, so turning
-  the extension off also saves the power the radar uses.
+- **Stay awake while you're here** (off by default): while the radar sees
+  you, the screen won't blank, lock or suspend just because you haven't
+  touched the keyboard. Once you leave, the normal GNOME timers take over again.
+- The radar is only switched on while the extension is enabled. You can
+  also switch it off with the Quick Settings tile (below), which stops
+  auto-locking and staying awake and saves the power the radar uses.
 
 ## Top bar and Quick Settings
 
@@ -83,15 +87,26 @@ The icon sits with the system icons in the top-right corner:
 | Person at a laptop | The radar sees you |
 | Laptop only | You walked away; the screen is about to lock |
 | Open padlock | Auto-lock is paused |
+| Person at a laptop, crossed out | The radar is off |
 | Warning sign | Something went wrong (see the notification) |
 
-Quick Settings also gets a **Presence** tile ("Lock when away"). Click it to pause or
-resume auto-locking (the choice is kept across logins). Its arrow opens a
-menu with a link to the settings.
+Quick Settings also gets a **Presence** tile. Like the Wi-Fi and Bluetooth
+tiles, clicking it switches the radar on or off (kept across logins). Its
+arrow opens a menu, like the one for Power Mode, where you can check or
+uncheck:
+
+- **Lock when away**: uncheck to pause auto-locking (also kept across logins);
+- **Lock during playback** and **Stay awake when present** (short for the
+  settings below).
+
+The rest is in Settings, which the menu also links to.
 
 Problems such as a missing udev rule or a lost radar connection are shown as
 a notification, and the icon turns into a warning sign, even if you've
-hidden the icon.
+hidden the icon. The radar is then switched off and GNOME's usual screen
+blanking, locking and suspend apply, as if the extension weren't there. This
+includes the radar going silent for 10 s. Turning the radar off and on again
+retries.
 
 ## Settings
 
@@ -102,6 +117,7 @@ Open them from the Extensions app, or with
 |---|---|---|
 | Lock delay | 5 s | Extra wait (0–300 s) after the radar stops seeing you |
 | Lock even when the screensaver is blocked | Off | Also lock during video playback or presentations |
+| Stay awake while you're here | Off | While the radar sees you, the screen won't blank, lock or suspend because you haven't touched the keyboard (handy when reading or watching). Manual suspend and closing the lid still work |
 | Show top bar icon | On | Hide the icon; the Quick Settings tile stays, and errors still show the icon |
 
 ## How it works

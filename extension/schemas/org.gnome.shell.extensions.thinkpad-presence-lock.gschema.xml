@@ -16,7 +16,17 @@
     <key name="auto-lock" type="b">
       <default>true</default>
       <summary>Lock automatically</summary>
-      <description>Lock the screen when you walk away. Turned off with the Quick Settings tile to pause auto-locking.</description>
+      <description>Lock the screen when you walk away. Can be unchecked in the Quick Settings menu to pause auto-locking.</description>
+    </key>
+    <key name="stay-awake" type="b">
+      <default>false</default>
+      <summary>Stay awake while you're here</summary>
+      <description>While the radar sees you, keep the screen from dimming, blanking, locking or suspending on its own.</description>
+    </key>
+    <key name="radar" type="b">
+      <default>true</default>
+      <summary>Radar on</summary>
+      <description>Switch the radar on. Turned off with the Quick Settings tile, which stops auto-locking and staying awake, and saves the radar's power.</description>
     </key>
     <key name="show-indicator" type="b">
       <default>true</default>

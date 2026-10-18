@@ -24,6 +24,12 @@ export default class PresenceLockPreferences extends ExtensionPreferences {
         });
         settings.bind('lock-when-inhibited', inhibited, 'active', Gio.SettingsBindFlags.DEFAULT);
 
+        const stayAwake = new Adw.SwitchRow({
+            title: 'Stay awake while you’re here',
+            subtitle: 'While the radar sees you, the screen won’t blank, lock or suspend on its own.',
+        });
+        settings.bind('stay-awake', stayAwake, 'active', Gio.SettingsBindFlags.DEFAULT);
+
         const indicator = new Adw.SwitchRow({
             title: 'Show top bar icon',
             subtitle: 'Shows whether the radar sees you. Errors are shown even when this is off.',
@@ -33,6 +39,7 @@ export default class PresenceLockPreferences extends ExtensionPreferences {
         const group = new Adw.PreferencesGroup();
         group.add(delay);
         group.add(inhibited);
+        group.add(stayAwake);
         group.add(indicator);
 
         const page = new Adw.PreferencesPage();
