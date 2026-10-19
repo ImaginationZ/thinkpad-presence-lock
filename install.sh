@@ -12,8 +12,7 @@ pkexec sh -c "install -m 0644 '$PWD/$RULE' /etc/udev/rules.d/ && \
     udevadm trigger --action=add --sysname-match='HID-SENSOR-2000e1.*'"
 
 echo "Installing extension $UUID..."
-gnome-extensions pack --force --extra-source=icons --out-dir="${TMPDIR:-/tmp}" extension
-gnome-extensions install --force "${TMPDIR:-/tmp}/$UUID.shell-extension.zip"
+gnome-extensions install --force "$(./pack.sh "${TMPDIR:-/tmp}")"
 
 echo
 echo "Done. Log out and back in, then run:  gnome-extensions enable $UUID"

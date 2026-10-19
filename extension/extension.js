@@ -184,6 +184,9 @@ export default class PresenceLockExtension extends Extension {
             this._startRadar();
     }
 
+    // The extension keeps running on the lock screen ("unlock-dialog"
+    // session mode) so it can wake the screen when you come back, and so
+    // the radar is switched off when the extension is disabled there.
     disable() {
         this._stopRadar();
         Main.sessionMode.disconnectObject(this);
