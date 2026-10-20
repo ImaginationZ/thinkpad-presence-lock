@@ -312,10 +312,11 @@ export default class PresenceLockExtension extends Extension {
         // unnoticed. Nothing shows on the lock screen.
         const locked = Main.sessionMode.isLocked;
         const showIcon = !locked && (!!this._error || this._settings.get_boolean('show-indicator'));
-        // No subtitle when off, like the built-in tiles.
+        // No subtitle when off, like the built-in tiles. Kept short so it
+        // fits the tile with larger fonts.
         let status = this._error;
         if (!status && radar)
-            status = this._settings.get_boolean('auto-lock') ? 'Lock when away' : 'Not locking';
+            status = this._settings.get_boolean('auto-lock') ? 'Lock active' : 'Lock paused';
         this._indicator.setStatus(icon, status, showIcon, !locked);
         this._updateInhibit();
     }
